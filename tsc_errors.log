@@ -1,0 +1,4 @@
+frontend/components/InstagramCFTab.tsx(17,47): error TS2339: Property 'listInstagramCFJobs' does not exist on type 'BackendService'.
+frontend/components/InstagramCFTab.tsx(26,47): error TS2339: Property 'getInstagramCFStats' does not exist on type 'BackendService'.
+frontend/components/InstagramCFTab.tsx(52,46): error TS2339: Property 'createInstagramCFJob' does not exist on type 'BackendService'.
+frontend/components/InstagramCFTab.tsx(71,34): error TS2339: Property 'deleteInstagramCFJob' does not exist on type 'BackendService'.
