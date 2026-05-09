@@ -1,0 +1,27 @@
+{
+  "airtableBlockId": "blk80uR5PbgVT0rIB",
+  "name": "AI Influencer Studio Pro",
+  "description": "Professional-grade AI generation suite. Create consistent AI influencers, cinematic videos (Gemini/Veo), and high-end visuals directly in your Airtable base using a BYOK model.",
+  "version": "1.0",
+  "author": "Bonobooh Studio AI",
+  "homepage": "https://bonobooh.studio",
+  "frontendEntry": "./frontend/index.tsx",
+  "permissions": {
+    "schema": {
+      "reading": "required"
+    },
+    "records": {
+      "reading": "required",
+      "writing": "required"
+    }
+  },
+  "externalFetchDomains": [
+    "anaisblendy-collab.onrender.com",
+    "backend-fastapi1.onrender.com",
+    "api.cloudinary.com",
+    "res.cloudinary.com",
+    "huggingface.co",
+    "unsplash.com",
+    "images.unsplash.com"
+  ]
+}

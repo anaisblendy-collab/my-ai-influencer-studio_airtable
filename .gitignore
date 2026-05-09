@@ -1,0 +1,7 @@
+/node_modules
+/.airtableblocksrc.json
+/build
+/release_it.bat
+/run.bat
+.env
+*.local

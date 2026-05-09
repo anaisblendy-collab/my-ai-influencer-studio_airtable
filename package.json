@@ -1,0 +1,122 @@
+{
+
+    "scripts": {
+
+        "lint": "ESLINT_USE_FLAT_CONFIG=false eslint frontend",
+
+        "test": "jest",
+
+        "test:watch": "jest --watch",
+
+        "test:coverage": "jest --coverage"
+
+    },
+
+    "dependencies": {
+
+        "@airtable/blocks": "^1.18.2",
+
+        "@tiptap/extension-bold": "^3.22.5",
+
+        "@tiptap/extension-character-count": "^3.22.5",
+
+        "@tiptap/extension-italic": "^3.22.5",
+
+        "@tiptap/extension-mention": "^3.22.5",
+
+        "@tiptap/extension-placeholder": "^3.22.5",
+
+        "@tiptap/extension-underline": "^3.22.5",
+
+        "@tiptap/react": "^3.22.5",
+
+        "@tiptap/starter-kit": "^3.22.5",
+
+        "@tiptap/suggestion": "^3.22.5",
+
+        "@xyflow/react": "^12.10.2",
+
+        "autoprefixer": "^10.4.16",
+
+        "framer-motion": "^12.38.0",
+
+        "lucide-react": "^1.9.0",
+
+        "postcss": "^8.4.32",
+
+        "react": "^18.2.0",
+
+        "react-dom": "^18.2.0",
+
+        "tailwindcss": "^3.4.0",
+
+        "tippy.js": "^6.3.7",
+
+        "zod": "^4.4.3",
+
+        "zustand": "^5.0.13"
+
+    },
+
+    "devDependencies": {
+
+        "@airtable/blocks-testing": "^0.0.6",
+
+        "@babel/core": "^7.28.5",
+
+        "@babel/preset-env": "^7.28.5",
+
+        "@babel/preset-react": "^7.28.5",
+
+        "@babel/preset-typescript": "^7.28.5",
+
+        "@testing-library/jest-dom": "^5.16.5",
+
+        "@testing-library/react": "^12.1.5",
+
+        "@testing-library/user-event": "^14.6.1",
+
+        "@types/airtable": "^0.10.0",
+
+        "@types/react": "^19.2.8",
+
+        "@types/react-dom": "^19.2.3",
+
+        "babel-jest": "^30.2.0",
+
+        "eslint": "^9.5.0",
+
+        "eslint-plugin-react": "^7.34.2",
+
+        "eslint-plugin-react-hooks": "^4.6.2",
+
+        "identity-obj-proxy": "^3.0.0",
+
+        "jest": "^29.5.0",
+
+        "jest-environment-jsdom": "^29.5.0",
+
+        "typescript": "^5.9.3"
+
+    },
+
+    "jest": {
+
+        "testEnvironment": "jsdom",
+
+        "setupFilesAfterEnv": [
+
+            "<rootDir>/jest.setup.js"
+
+        ],
+
+        "moduleNameMapper": {
+
+            "\\.(css|less|scss|sass)$": "identity-obj-proxy"
+
+        }
+
+    }
+
+}
+

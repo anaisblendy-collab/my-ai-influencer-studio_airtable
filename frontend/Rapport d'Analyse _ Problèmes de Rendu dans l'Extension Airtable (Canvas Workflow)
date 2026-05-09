@@ -1,0 +1,129 @@
+# Rapport d'Analyse : Problèmes de Rendu dans l'Extension Airtable (Canvas Workflow)
+
+## 1. Introduction
+
+Ce rapport a pour objectif d'analyser les problèmes de rendu et de performance rencontrés dans l'extension Airtable de type "canvas workflow" fournie. L'analyse se concentre sur l'identification des causes, qu'elles soient liées au code de l'extension ou aux limitations inhérentes à la plateforme Airtable, et propose des recommandations pour y remédier.
+
+## 2. Résumé des Constatations
+
+L'examen du code source et la recherche de documentation Airtable ont révélé plusieurs facteurs contribuant aux difficultés de rendu et à la lenteur de l'interface :
+
+*   **Problèmes de Performance liés au Code** : L'utilisation fréquente et non optimisée de `globalConfig.setAsync` pour la persistance de l'état du workflow, ainsi que le rendu manuel et non "throttlé" des éléments SVG et du zoom, entraînent une surcharge du navigateur et une expérience utilisateur dégradée.
+*   **Problèmes de Rendu Visuel liés au Code** : Le calcul des chemins SVG pour les arêtes et la gestion du zoom sont effectués de manière synchrone et sans optimisation, ce qui peut provoquer des saccades lors des interactions.
+*   **Contraintes de la Plateforme Airtable** : La limite de taille de 150 Ko pour `globalConfig` représente un risque significatif pour la scalabilité de l'application. De plus, Airtable lui-même peut présenter des latences, notamment avec des bases de données volumineuses ou des requêtes API fréquentes.
+
+## 3. Analyse Détaillée des Problèmes de Code
+
+### 3.1. Problème de Performance : Mises à Jour Fréquentes de `globalConfig`
+
+Le code utilise `globalConfig.setAsync('workflow_v1', workflow)` dans un `useEffect` qui est déclenché à chaque modification de l'objet `workflow` [1]. Bien que `globalConfig` soit le mécanisme standard pour persister l'état dans les extensions Airtable, des mises à jour trop fréquentes peuvent entraîner des problèmes de performance. Chaque appel à `setAsync` implique une opération d'écriture qui peut être coûteuse en termes de ressources et de temps de traitement, surtout si l'objet `workflow` est volumineux.
+
+**Impact** : L'interface peut devenir lente et réactive, avec des délais perceptibles après chaque interaction de l'utilisateur (déplacement de nœud, modification de texte, etc.), car le système tente de persister l'état en arrière-plan.
+
+### 3.2. Problème de Rendu Visuel : Gestion Manuelle et Non Optimisée du Canvas
+
+Le rendu des nœuds et des arêtes du workflow est géré manuellement avec des calculs de position (`node.x`, `node.y`) et de zoom (`pan.x`, `pan.y`, `zoom`) appliqués via des transformations CSS et des chemins SVG. Le calcul des `edgesPath` et `linkPreviewPath` est effectué dans des `useMemo` qui dépendent de `workflow.edges`, `workflow.nodes`, `pan`, et `zoom` [2].
+
+**Impact** : Sans techniques d'optimisation comme le "throttling" ou le "debouncing" pour les événements de souris (`handleMouseMove`) ou de roue (`handleWheelRaw`), le navigateur est contraint de recalculer et de redessiner l'intégralité du canvas à une fréquence très élevée. Cela peut saturer le thread principal du navigateur, provoquant des saccades et une sensation de non-fluidité, en particulier lors du glisser-déposer des nœuds ou du zoom.
+
+## 4. Analyse Détaillée des Contraintes de la Plateforme Airtable
+
+### 4.1. Limite de Taille de `globalConfig`
+
+Airtable impose une limite de taille de 150 Ko pour chaque instance de `globalConfig` [3]. Le code actuel stocke l'intégralité de l'état du workflow (`WorkflowState`) dans `globalConfig` [4].
+
+**Impact** : Si le workflow devient complexe, avec un grand nombre de nœuds, d'arêtes ou des données volumineuses associées à chaque nœud (`data` object), il est possible d'atteindre rapidement cette limite. Une fois la limite dépassée, les tentatives de sauvegarde échoueront silencieusement ou provoqueront des erreurs, rendant l'extension inutilisable pour des workflows complexes.
+
+### 4.2. Performance Générale d'Airtable
+
+Plusieurs sources indiquent que la performance d'Airtable peut être un facteur limitant, surtout avec des bases de données volumineuses ou des requêtes API fréquentes [5] [6] [7]. Bien que l'extension utilise `AirtableService` pour interagir avec la base, des opérations lourdes ou des chargements initiaux de données importantes (`getInfluencerProfiles`, `getModelRegistry`) peuvent contribuer à la lenteur générale de l'application [8].
+
+**Impact** : Même si le code de l'extension est optimisé, la réactivité globale peut être affectée par les performances sous-jacentes de la plateforme Airtable, en particulier lors du chargement initial ou des interactions nécessitant des appels à la base de données.
+
+## 5. Recommandations et Solutions
+
+### 5.1. Optimisation des Mises à Jour de `globalConfig` (Debouncing)
+
+Pour éviter les mises à jour excessives de `globalConfig`, il est fortement recommandé d'implémenter une technique de "debouncing". Cela consiste à retarder l'exécution de la fonction `globalConfig.setAsync` jusqu'à ce qu'une certaine période d'inactivité se soit écoulée après la dernière modification de l'état du workflow.
+
+**Modification suggérée (pseudocode)** :
+
+```javascript
+// Importez une fonction debounce (par exemple, de lodash ou implémentez-la manuellement)
+import debounce from 'lodash.debounce';
+
+// ... à l'intérieur de WorkflowTab ...
+
+useEffect(() => {
+    if (workflow.nodes.length > 0) {
+        const debouncedSave = debounce(() => {
+            globalConfig.setAsync('workflow_v1', workflow);
+        }, 500); // Sauvegarde après 500ms d'inactivité
+        debouncedSave();
+        return () => {
+            debouncedSave.cancel(); // Annule la sauvegarde si l'état change avant le délai
+        };
+    }
+}, [workflow, globalConfig]);
+```
+
+### 5.2. Optimisation du Rendu Visuel (Throttling et Utilisation de Bibliothèques)
+
+Pour les événements de souris et de roue, l'application de "throttling" peut limiter la fréquence des mises à jour de l'interface, améliorant ainsi la fluidité.
+
+**Modification suggérée (pseudocode pour `handleMouseMove`)** :
+
+```javascript
+// Importez une fonction throttle
+import throttle from 'lodash.throttle';
+
+// ... à l'intérieur de WorkflowTab ...
+
+const throttledMouseMove = useMemo(
+    () => throttle((event: React.MouseEvent) => {
+        const { clientX, clientY } = event;
+        if (draggingNode) {
+            // ... logique de déplacement de nœud ...
+            dragOffset.current = { x: clientX, y: clientY };
+        } else if (isPanning) {
+            setPan({ x: panStart.current.x + (clientX - dragOffset.current.x), y: panStart.current.y + (clientY - dragOffset.current.y) });
+        } else if (linking) {
+            setLinking(prev => prev ? { ...prev, x: clientX, y: clientY } : null);
+        }
+    }, 16), // Limite à environ 60 FPS (1000ms / 60 = 16.6ms)
+    [draggingNode, isPanning, linking, pan, zoom] // Dépendances du throttle
+);
+
+// Remplacez handleMouseMove par throttledMouseMove dans le JSX
+// <div onMouseMove={throttledMouseMove} ... />
+```
+
+Pour la gestion du canvas, l'utilisation de bibliothèques dédiées au rendu de graphes ou de diagrammes (comme `react-flow`, `gojs`, ou `konva` si un rendu basé sur canvas HTML5 est souhaité) pourrait offrir des optimisations de performance intégrées (rendu incrémental, gestion des couches, etc.) qui sont difficiles à implémenter manuellement.
+
+### 5.3. Gestion de la Limite de `globalConfig`
+
+Pour adresser la limite de 150 Ko de `globalConfig`, plusieurs stratégies peuvent être envisagées :
+
+*   **Minimisation des Données** : Ne stocker que les informations essentielles dans `globalConfig`. Les données dérivées ou facilement recalculables devraient être évitées.
+*   **Stockage Externe** : Pour des workflows très complexes, envisager de stocker une partie des données du workflow dans un champ de type "Long text" (avec support Markdown/JSON) dans une table Airtable dédiée, ou via un service backend externe si la complexité le justifie. `globalConfig` pourrait alors ne contenir qu'un identifiant ou un résumé du workflow.
+*   **Compression des Données** : Avant de sauvegarder dans `globalConfig`, les données JSON du workflow pourraient être compressées (par exemple, avec `LZ-string` ou `pako`), puis décompressées lors du chargement. Cela permettrait de stocker plus d'informations dans la limite de 150 Ko, mais ajouterait une surcharge de traitement.
+
+### 5.4. Amélioration de la Performance Générale
+
+*   **Chargement Conditionnel des Données** : Charger les données (`influencers`, `models`, `dynamicCatalog`) uniquement lorsque cela est nécessaire, ou de manière paginée si les volumes sont importants.
+*   **Optimisation des Requêtes Airtable** : S'assurer que les requêtes vers la base Airtable sont aussi efficaces que possible, en utilisant des vues filtrées ou des champs spécifiques pour minimiser la quantité de données transférées.
+
+## 6. Conclusion
+
+Les problèmes de rendu et de performance de votre extension Airtable proviennent d'une combinaison de facteurs liés à l'implémentation du code (mises à jour fréquentes de l'état, rendu manuel non optimisé) et aux limitations de la plateforme Airtable (limite de taille de `globalConfig`). En appliquant les techniques de debouncing et de throttling, et en adoptant des stratégies pour gérer la taille de `globalConfig`, il est possible d'améliorer significativement la fluidité et la robustesse de l'extension. Pour des besoins de rendu très avancés, l'intégration d'une bibliothèque de canvas dédiée pourrait être une solution à long terme.
+
+## 7. Références
+
+[1] Code source fourni, ligne 235: `useEffect(() => { if (workflow.nodes.length > 0) globalConfig.setAsync('workflow_v1', workflow); }, [workflow, globalConfig]);`
+[2] Code source fourni, lignes 315-342: `edgesPath` et `linkPreviewPath` `useMemo` hooks.
+[3] Airtable Blocks SDK Documentation: [GlobalConfig](https://www.airtable.com/developers/extensions/api/models/GlobalConfig)
+[4] Code source fourni, ligne 190: `const saved = globalConfig.get('workflow_v1') as WorkflowState | undefined;`
+[5] Airtable Community: [Troubleshooting Airtable base performance](https://support.airtable.com/docs/troubleshooting-airtable-performance)
+[6] Reddit: [Is it just me or is Airtable's performance kind of sluggish?](https://www.reddit.com/r/Airtable/comments/1ffuudf/is_it_just_me_or_is_airtables_performance_kind_of/)
+[7] Airtable Community: [Improve app performance on large bases/load tables conditionally](https://community.airtable.com/development-apis-11/improve-app-performance-on-large-bases-load-tables-conditionally-5747)
+[8] Code source fourni, lignes 225-228: `airtableService.getInfluencerProfiles()`, `backendService.getModelRegistry()`, `fetch("backendService.getBaseUrl()/api/v1/workflow/nodes")`
